@@ -14,22 +14,16 @@ func (no *NullOut) Write(p []byte) (n int, err error) {
 	return 0, nil
 }
 
-func TestPerf(t *testing.T) {
-	print("Iso8583 write test ...")
-
+func BenchmarkSerialize(b *testing.B) {
 	// init
 	InitFieldTypes()
-
-	loops := int64(1000000)
 
 	buf := bufio.NewWriter(new(NullOut))
 	//buf:=bytes.NewBuffer(make([]byte, 1000000))
 
-	start := time.Now()
-
 	msg := new(Iso8583Message)
 
-	for i := loops; i > 0; i-- {
+	for i := 0; i < b.N; i++ {
 		msg.Mti = "0200"
 		msg.Set(2, "3125")
 		msg.Set(7, "0104132431")
@@ -42,8 +36,4 @@ func TestPerf(t *testing.T) {
 
 		msg.Serialize(buf)
 	}
-
-	end := time.Now()
-
-	fmt.Println("\nResult: ", loops*1e9/end.Sub(start).Nanoseconds())
 }
