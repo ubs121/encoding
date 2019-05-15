@@ -2,9 +2,7 @@ package iso8583
 
 import (
 	"bufio"
-	"fmt"
 	"testing"
-	"time"
 )
 
 type NullOut struct {

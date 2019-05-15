@@ -1,8 +1,9 @@
+// Copyright 2015 ubs121
+
+// Package iso8583 implements a fast ISO 8583 decoder
 package iso8583
 
-import (
-	"bufio"
-)
+import "bufio"
 
 type Iso8583Message struct {
 	Mti    string

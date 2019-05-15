@@ -1,3 +1,6 @@
+// Copyright 2015 ubs121
+
+// Package iso8583 implements a fast ISO 8583 decoder
 package iso8583
 
 import (
@@ -112,13 +115,13 @@ func (f *LLLField) Write(w *bufio.Writer, s string) {
 }
 
 func InitFieldTypes() {
-	Fields[CARDNO] = &LLField{"s..", 19}
-	Fields[PROC_CODE] = &Field{"n", 6}
+	Fields[CardNo] = &LLField{"s..", 19}
+	Fields[ProcCode] = &Field{"n", 6}
 	Fields[AMOUNT] = &Field{"n", 12}
-	Fields[TRX_DATE] = &Field{"n", 10}
-	Fields[TRACE_NO] = &Field{"n", 6}
-	Fields[LOCAL_TIME] = &Field{"n", 6}
-	Fields[LOCAL_DATE] = &Field{"n", 4}
+	Fields[TrxDate] = &Field{"n", 10}
+	Fields[TraceNo] = &Field{"n", 6}
+	Fields[LocalTime] = &Field{"n", 6}
+	Fields[LocalDate] = &Field{"n", 4}
 	Fields[15] = &Field{"n", 4}
 	Fields[18] = &Field{"n", 4}
 	Fields[22] = &Field{"n", 3}
@@ -130,7 +133,7 @@ func InitFieldTypes() {
 	Fields[36] = &LLLField{"ans...", 104}
 	Fields[37] = &Field{"s", 12}
 	Fields[38] = &Field{"s", 6}
-	Fields[RESPONSE_CODE] = &Field{"s", 2}
+	Fields[ResponseCode] = &Field{"s", 2}
 	Fields[41] = &Field{"s", 8}
 	Fields[42] = &Field{"s", 15}
 	Fields[43] = &Field{"s", 40}
@@ -146,22 +149,23 @@ func InitFieldTypes() {
 	Fields[63] = &LLLField{"ans...", 999}
 	Fields[90] = &Field{"n", 42}
 	Fields[95] = &Field{"s", 42}
-	Fields[ACCOUNT1] = &LLField{"ans..", 30}
-	Fields[ACCOUNT2] = &LLField{"ans..", 30}
+	Fields[Account1] = &LLField{"ans..", 30}
+	Fields[Account2] = &LLField{"ans..", 30}
 }
 
+// Field numbers
 const (
 	MTI    = 0
-	BITMAP = 1
-	CARDNO = 2
+	Bitmap = 1
+	CardNo = 2
 	// Processing Code
-	PROC_CODE = 3
+	ProcCode = 3
 	// Transaction Amount
 	AMOUNT = 4
 	// Settlement Amount
-	SETTLE_AMOUNT = 5
+	SettleAmount = 5
 	// Transmission Date and Time
-	TRX_DATE = 7
+	TrxDate = 7
 	// Conversion Rate Settlement
 	_009_CONVERSION_RATE_SETTLEMENT = 9
 	// Track 1 Data
@@ -173,33 +177,33 @@ const (
 	// Authorising Agent Institution
 	_058_AUTHORISING_AGENT_INSTITUTION = 58
 	// Systems Trace Audit Number
-	TRACE_NO = 11
+	TraceNo = 11
 	// Field 12 - Time, Local Transaction
-	LOCAL_TIME = 12
+	LocalTime = 12
 	// Field 13 - Date, Local Transaction
-	LOCAL_DATE = 13
+	LocalDate = 13
 	// Field 14 - Date, Expiration
-	EXPIRE_DATE = 14
+	ExpireDate = 14
 	// Field 15 - Date, Settlement
-	SETTLE_DATE = 15
+	SettleDate = 15
 	// Field 16 - Date, Conversion
-	_016_CONVERSION_DATE = 16
+	ConversionDate = 16
 	// Field 18 - Merchant Type
 	MCC = 18
 	// Field 22 - POS Entry Mode
-	POS_ENTRY = 22
+	PosEntry = 22
 	// Field 23 - Card Sequence Number
 	_023_CARD_SEQUENCE_NUM = 23
 	// Field 25 - POS Condition Code
-	POS_TYPE = 25
+	PosType = 25
 	// Field 26 - POS PIN Capture Code
-	PIN_CAPTURE = 26
+	PinCapture = 26
 	// Authorisation ID Response
-	_027_AUTH_ID_RSP = 27
+	AuthIDResponse = 27
 	// Transaction fee amount
-	_028_TRAN_FEE_AMOUNT = 28
+	TranFeeAmount = 28
 	// Settlement fee amount
-	_029_SETTLEMENT_FEE_AMOUNT = 29
+	SettlementFeeAmount = 29
 	// Transaction processing fee amount
 	_030_TRAN_PROC_FEE_AMOUNT = 30
 	// Settlement processing fee amount
@@ -211,13 +215,13 @@ const (
 	// Field 35 - Track 2 Data
 	DATA2 = 35
 	// Field 37 - Retrieval Reference Number
-	REF_NO = 37
+	RefNo = 37
 	// Field 38 - Authorization ID Response
-	APPROVAL_CODE = 38
+	ApprovalCode = 38
 	// Field 39 - Response Code
-	RESPONSE_CODE = 39
+	ResponseCode = 39
 	// Field 40 - Service Restriction Code
-	_040_SERVICE_RESTRICTION_CODE = 40
+	ServiceRestrictionCode = 40
 	// Field 41 - Card Acceptor Terminal ID
 	TERMINAL = 41
 	// Field 42 - Card Acceptor ID Code
@@ -227,19 +231,19 @@ const (
 	// Field 44 - Additional Response Data
 	_044_ADDITIONAL_RESPONSE_DATA = 44
 	// Field 48 - Additional Data
-	ADDITIONAL_DATA = 48
+	AdditionalData = 48
 	// Field 49 - Currency Code, Transaction
 	CURRENCY = 49
 	// Field 50 - Currency Code, Settlement
-	SETTLE_CURRENCY = 50
+	SettleCurrency = 50
 	// Field 52 - PIN Data
-	PIN_DATA = 52
+	PinData = 52
 	// Field 54 - Additional Amounts
-	ADDITIONAL_AMOUNT = 54
+	AdditionalAmount = 54
 	// Field 56 - Message Reason Code
 	_056_MESSAGE_REASON_CODE = 56
 	// Settlement Code
-	SETTLE_CODE = 66
+	SettleCode = 66
 	// Extended Payment Code
 	_067_EXTENDED_PAYMENT_CODE = 67
 	// Network Management Information Code
@@ -271,17 +275,17 @@ const (
 	// Debits, Transaction Fee Amount
 	_085_DEBITS_TRANSACTION_FEE_AMOUNT = 85
 	// Credits, Amount
-	_086_CREDITS_AMOUNT = 86
+	CreditsAmount = 86
 	// Credits Reversal, Amount
 	_087_CREDITS_REVERSAL_AMOUNT = 87
 	// Debits, Amount
-	_088_DEBITS_AMOUNT = 88
+	DebitsAmount = 88
 	// Debits Reversal, Amount
 	_089_DEBITS_REVERSAL_AMOUNT = 89
 	// Original Data Elements
 	_090_ORIGINAL_DATA_ELEMENTS = 90
 	// File Update Code
-	_091_FILE_UPDATE_CODE = 91
+	FileUpdateCode = 91
 	// Replacement Amounts
 	_095_REPLACEMENT_AMOUNTS = 95
 	// Amount Net Settlement
@@ -291,13 +295,13 @@ const (
 	// Field 100 - Receiving Institution ID Code
 	RECEIVER = 100
 	// Field 101 - File Name
-	FILE_NAME = 101
+	FileName = 101
 	// Field 102 - Account Identification 1
-	ACCOUNT1 = 102
+	Account1 = 102
 	// Field 103 - Account Identification 2
-	ACCOUNT2 = 103
+	Account2 = 103
 	// Payments, Number
-	_118_PAYMENTS_NUMBER = 118
+	PaymentsNumber = 118
 	// Payments Reversal, Number
-	_119_PAYMENTS_REVERSAL_NUMBER = 119
+	PaymentsReversalNumber = 119
 )
