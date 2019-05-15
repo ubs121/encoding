@@ -7,11 +7,11 @@ import (
 	"io"
 )
 
-func parseLines(chunk *xmlElem) {
+func parseLines(chunk *Segment) {
 	buf := chunk.data
 
 	lines := bytes.Split(buf, []byte{'\n'}) // all must be sub-slices
-	tags := make([]xmlElem, len(lines))     // destination array
+	tags := make([]Segment, len(lines))     // destination array
 
 	// TODO: calculate hierarchy from indents
 
@@ -28,7 +28,7 @@ func parseLines(chunk *xmlElem) {
 		if line[0] == '<' {
 			if _, yes := nameByte[line[1]]; yes {
 				// start tag
-				tags[i].kind = xmlOpen
+				tags[i].kind = OpenTag
 				tags[i].name, line = _readName(line[1:])
 
 				if line[0] == ' ' {
@@ -41,7 +41,7 @@ func parseLines(chunk *xmlElem) {
 				// self-closing tag?
 				if line[0] == '/' {
 					// TODO: close tag (leaf)
-					tags[i].kind = xmlNode // complete tag
+					tags[i].kind = Node // complete tag
 					line = line[1:]
 				}
 
@@ -55,7 +55,7 @@ func parseLines(chunk *xmlElem) {
 				}
 			} else if line[1] == '/' {
 				// end tag
-				tags[i].kind = xmlClose
+				tags[i].kind = CloseTag
 				tags[i].name = line[2 : len(line)-1] // exclude '>'
 			} else if line[1] == '?' {
 				// skip
@@ -66,14 +66,14 @@ func parseLines(chunk *xmlElem) {
 			}
 		} else {
 			// char data
-			tags[i].kind = xmlChardata
+			tags[i].kind = CharData
 			tags[i].data = line
 		}
 
 	}
 }
 
-func parseNormal(chunk *xmlElem) {
+func parseNormal(chunk *Segment) {
 	dec := xml.NewDecoder(bytes.NewReader(chunk.data))
 	dec.Strict = false
 

@@ -1,3 +1,6 @@
+// Copyright 2019 ubs121
+
+// Package xml implements a concurrent, line by line parser
 package xml
 
 import (
@@ -14,34 +17,35 @@ import (
 const maxWorkers = 16              //
 const chunkSize = 1024 * 1024 * 64 // 64Mb
 
-// constants
-var nameByte map[byte]bool
-var spaceByte map[byte]bool
-
+// These are types of XML elements
 const (
-	xmlFile     = iota // whole file
-	xmlChunk    = iota // data chunk
-	xmlNode     = iota // completed node (downward only), no parent ???
-	xmlOpen     = iota // open tag
-	xmlClose    = iota // close tag
-	xmlChardata = iota // char data
+	File      = iota // whole file
+	Chunk            // data chunk
+	Node             // completed node (downward only), no parent ???
+	OpenTag          // open tag
+	CloseTag         // close tag
+	CharData         // char data
+	Attribute        // attribute
 )
 
-// generic type for all kind of xml elements
+// Segment is a generic type for all kind of xml elements
 // i.e broken xml nodes
 // also message between parallel routines
-type xmlElem struct {
+type Segment struct {
 	kind     byte // see const
 	name     []byte
 	data     []byte
-	children elems
-	parent   *xmlElem // parent, top element
+	children []*Segment
+	parent   *Segment // parent, top element
 	x        int      // vertical position
 	y        int      // horizontal position
 }
 
-type chanElems chan *xmlElem
-type elems []*xmlElem
+type chanElems chan *Segment
+type segmentStack []*Segment
+
+var nameByte map[byte]bool
+var spaceByte map[byte]bool
 
 // FastParser parses a XML file concurrently
 // all XML elements must be on its own line
@@ -55,8 +59,8 @@ type FastParser struct {
 	rdr      io.Reader
 
 	// channels
-	chanParse chan *xmlElem // splitFile -> || -> parser
-	chanMerge chan *xmlElem // parser -> || -> merge
+	chanParse chan *Segment // splitFile -> || -> parser
+	chanMerge chan *Segment // parser -> || -> merge
 
 	// processing results (in seconds)
 	totalChunks int
@@ -66,18 +70,20 @@ type FastParser struct {
 	totalTime   time.Duration
 
 	// output stream
-	chanTransform chan *xmlElem
+	chanTransform chan *Segment
 }
 
 // NewParser creates a new parser
-func NewParser(filename string, trans chan *xmlElem) *FastParser {
+// filename is a input XML file
+// chanTrans is a subscriber channel for parsed outputs
+func NewParser(filename string, chanTrans chan *Segment) *FastParser {
 	cp := new(FastParser)
 	cp.Concurrency = maxWorkers
 	cp.ChunkSize = chunkSize
 	cp.fileName = filename
-	cp.chanParse = make(chan *xmlElem)
-	cp.chanMerge = make(chan *xmlElem)
-	cp.chanTransform = trans
+	cp.chanParse = make(chan *Segment)
+	cp.chanMerge = make(chan *Segment)
+	cp.chanTransform = chanTrans
 
 	return cp
 }
@@ -87,8 +93,8 @@ func (cp *FastParser) merge() {
 	start := time.Now()
 
 	c := 0
-	queueChunk := []*xmlElem{}
-	currentPath := []*xmlElem{}
+	queueChunk := []*Segment{}
+	currentPath := []*Segment{}
 	expectedID := int64(0) // TODO: use real ID
 
 	for {
@@ -113,17 +119,17 @@ func (cp *FastParser) merge() {
 			*/
 			for _, el := range chunk.children {
 				switch el.kind {
-				case xmlOpen:
+				case OpenTag:
 					// push
 					currentPath = append(currentPath, el)
 					// TODO: add attributes as leaf
-				case xmlClose:
+				case CloseTag:
 					// pop
 					// TODO: check node balance
 					currentPath = currentPath[:len(currentPath)-1]
 
 					// TODO: transform(el)
-				case xmlNode:
+				case Node:
 					// 'O' complete node
 					if cp.chanTransform != nil {
 						cp.chanTransform <- el
@@ -157,14 +163,14 @@ Requirements:
  - chunk must contain at least one leaf
  - each tag must be on its own line
 */
-func parseChunk(chunk *xmlElem) {
+func parseChunk(chunk *Segment) {
 
 	buf := chunk.data
 	n := len(buf)
 
 	// expected number of elements, 120 characters per element
-	//chunk.children = make([]*xmlElem, 0, n/120)
-	stack := chunk.children
+	//chunk.children = make([]*Segment, 0, n/120)
+	stack := segmentStack(chunk.children)
 	var tmpData []byte
 
 	// TODO: count lines
@@ -179,14 +185,14 @@ func parseChunk(chunk *xmlElem) {
 			tmpData, buf = _readText(buf)
 
 			top := stack.Peek()
-			if top != nil && top.kind == xmlOpen {
+			if top != nil && top.kind == OpenTag {
 				// concatenate on top.data
 				top.data = append(top.data, tmpData...)
 			} else {
 				// parent-less chardata
-				el := new(xmlElem)
+				el := new(Segment)
 				el.x = n - len(buf)
-				el.kind = xmlChardata
+				el.kind = CharData
 				stack.Push(el)
 			}
 		}
@@ -202,9 +208,9 @@ func parseChunk(chunk *xmlElem) {
 		c := buf[1]
 
 		if _, yes := nameByte[c]; yes { // start element
-			el := new(xmlElem)
+			el := new(Segment)
 			el.x = n - len(buf)
-			el.kind = xmlOpen
+			el.kind = OpenTag
 			el.name, buf = _readName(buf[1:])
 
 			if buf[0] == ' ' {
@@ -230,7 +236,7 @@ func parseChunk(chunk *xmlElem) {
 
 			// new element
 			top := stack.Peek()
-			if top != nil && top.kind == xmlClose {
+			if top != nil && top.kind == CloseTag {
 				// link parent & child
 				el.parent = top
 				top.children = append(top.children, el)
@@ -242,9 +248,9 @@ func parseChunk(chunk *xmlElem) {
 		} else if c == '/' { // end element
 			tmpData, buf = _readTo(buf[2:], '>')
 			top := stack.Peek()
-			if top != nil && top.kind == xmlClose {
+			if top != nil && top.kind == CloseTag {
 				// change into a completed
-				top.kind = xmlNode
+				top.kind = Node
 
 				// TODO: also check top.name ???
 				if stack.Len() > 1 {
@@ -255,9 +261,9 @@ func parseChunk(chunk *xmlElem) {
 				}
 			} else {
 				// top-less closing tag
-				el := new(xmlElem)
+				el := new(Segment)
 				el.x = n - len(buf)
-				el.kind = xmlClose
+				el.kind = CloseTag
 				el.name = tmpData
 
 				stack.Push(el)
@@ -286,7 +292,7 @@ func (cp *FastParser) splitFile() {
 	cp.rdr = file
 
 	var leftOver bytes.Buffer
-	var parent *xmlElem
+	var parent *Segment
 
 	nChunk := 0
 
@@ -305,9 +311,9 @@ func (cp *FastParser) splitFile() {
 		if err == io.EOF {
 			if n > 0 {
 				// last chunk
-				last := new(xmlElem)
+				last := new(Segment)
 				last.x = nChunk
-				last.kind = xmlChunk
+				last.kind = Chunk
 				last.data = append(leftOver.Bytes(), buf[:n]...)
 				last.parent = parent
 
@@ -330,9 +336,9 @@ func (cp *FastParser) splitFile() {
 			break
 		}
 
-		chunk := new(xmlElem)
+		chunk := new(Segment)
 		chunk.x = nChunk
-		chunk.kind = xmlChunk
+		chunk.kind = Chunk
 		chunk.data = append(leftOver.Bytes(), buf[:i]...)
 		chunk.parent = parent
 
@@ -348,7 +354,7 @@ func (cp *FastParser) splitFile() {
 
 	}
 	// last chunk (completed)
-	cp.chanMerge <- &xmlElem{x: -1}
+	cp.chanMerge <- &Segment{x: -1}
 
 	cp.totalChunks = nChunk
 
@@ -460,7 +466,7 @@ func _readName(buf []byte) ([]byte, []byte) {
 }
 
 // Requirement: all must be in one line
-func _readAttr(parent *xmlElem, buf []byte) []byte {
+func _readAttr(parent *Segment, buf []byte) []byte {
 
 	for 0 < len(buf) {
 		if buf[0] == '>' || buf[0] == '/' {
@@ -470,8 +476,8 @@ func _readAttr(parent *xmlElem, buf []byte) []byte {
 
 		buf = _space(buf)
 
-		at := new(xmlElem)
-		at.kind = '#'
+		at := new(Segment)
+		at.kind = Attribute
 		at.name, buf = _readName(buf)
 
 		buf = _space(buf)
@@ -543,15 +549,15 @@ func initParser() {
 
 }
 
-func (stack elems) IsEmpty() bool {
+func (stack segmentStack) IsEmpty() bool {
 	return len(stack) == 0
 }
 
-func (stack elems) Len() int {
+func (stack segmentStack) Len() int {
 	return len(stack)
 }
 
-func (stack *elems) Peek() *xmlElem {
+func (stack *segmentStack) Peek() *Segment {
 	if stack.IsEmpty() {
 		return nil
 	}
@@ -560,11 +566,11 @@ func (stack *elems) Peek() *xmlElem {
 	return s[n-1]
 }
 
-func (stack *elems) Push(el *xmlElem) {
+func (stack *segmentStack) Push(el *Segment) {
 	*stack = append(*stack, el)
 }
 
-func (stack *elems) Pop() *xmlElem {
+func (stack *segmentStack) Pop() *Segment {
 	s := *stack
 	n := len(s)
 	top := s[n-1]
