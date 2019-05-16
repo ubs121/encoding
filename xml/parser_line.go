@@ -8,6 +8,23 @@ import (
 	"time"
 )
 
+/*
+Line::
+  x // line no 
+  y // indent
+  parent // parent.x < x
+  children // range = [x+1: end]
+
+Steps:
+	- Main: split into chunks ->  Worker
+	- Worker: build sub-tree (recognizing structure is first priority, so use line indention)
+	- Worker: inform structure (un-closed nodes) -> TopTree
+	- TopTree: update top-tree
+	- Worker: ask top-tree <- TopTree
+	- Worker: transform -> partial file  (subscriber)
+	- Main: concatenate partial files
+*/
+
 // LineParser parses line by line
 // all XML elements must be on its own line
 type LineParser Parser
@@ -16,10 +33,14 @@ func parseLines(chunk *Segment) {
 	buf := chunk.data
 
 	lines := bytes.Split(buf, []byte{'\n'}) // all must be sub-slices
-	tags := make([]Segment, len(lines))     // destination array
+	tags := make([]Segment, len(lines))     // meta information
 
 	// TODO: calculate hierarchy from indents
-
+	
+	// TODO: inform structure (all of them ???) to a top-tree worker
+	// [')', ')', 'O', 'O', ')', '(', 'O' ]
+	
+	// TODO: do actual parsing ('O' nodes)
 	for i, line := range lines {
 		// TrimSpace returns a subslice of s by slicing off all leading and
 		// trailing white space, as defined by Unicode.
@@ -76,6 +97,9 @@ func parseLines(chunk *Segment) {
 		}
 
 	}
+	
+	// TODO: wait for top-tree
+	// TODO: transform
 }
 
 // Run is a main routine
