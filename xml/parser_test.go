@@ -34,7 +34,7 @@ var (
 func TestParseChunk(t *testing.T) {
 	initParser()
 
-	chunk := new(xmlElem)
+	chunk := new(Segment)
 	chunk.data = []byte(testCase1)
 
 	parseChunk(chunk)
@@ -56,14 +56,26 @@ func TestParseChunk(t *testing.T) {
 
 }
 
-func BenchmarkParse(b *testing.B) {
+func BenchmarkParseChunk(b *testing.B) {
 	initParser()
 
-	chunk := new(xmlElem)
+	chunk := new(Segment)
 
 	for n := 0; n < b.N; n++ {
 		chunk.data = []byte(testCase1)
 		parseChunk(chunk)
+	}
+
+}
+
+func BenchmarkParseLines(b *testing.B) {
+	initParser()
+
+	chunk := new(Segment)
+
+	for n := 0; n < b.N; n++ {
+		chunk.data = []byte(testCase1)
+		parseLines(chunk)
 	}
 
 }

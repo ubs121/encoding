@@ -2,32 +2,7 @@ package xml
 
 import (
 	"bytes"
-	"fmt"
-	"os"
-	"sync"
-	"time"
 )
-
-/*
-Line::
-  x // line no 
-  y // indent
-  parent // parent.x < x
-  children // range = [x+1: end]
-
-Steps:
-	- Main: split into chunks ->  Worker
-	- Worker: build sub-tree (recognizing structure is first priority, so use line indention)
-	- Worker: inform structure (un-closed nodes) -> TopTree
-	- TopTree: update top-tree
-	- Worker: ask top-tree <- TopTree
-	- Worker: transform -> partial file  (subscriber)
-	- Main: concatenate partial files
-*/
-
-// LineParser parses line by line
-// all XML elements must be on its own line
-type LineParser Parser
 
 func parseLines(chunk *Segment) {
 	buf := chunk.data
@@ -36,10 +11,10 @@ func parseLines(chunk *Segment) {
 	tags := make([]Segment, len(lines))     // meta information
 
 	// TODO: calculate hierarchy from indents
-	
+
 	// TODO: inform structure (all of them ???) to a top-tree worker
 	// [')', ')', 'O', 'O', ')', '(', 'O' ]
-	
+
 	// TODO: do actual parsing ('O' nodes)
 	for i, line := range lines {
 		// TrimSpace returns a subslice of s by slicing off all leading and
@@ -97,80 +72,7 @@ func parseLines(chunk *Segment) {
 		}
 
 	}
-	
+
 	// TODO: wait for top-tree
 	// TODO: transform
-}
-
-// Run is a main routine
-func (lp *LineParser) Run() error {
-	startTime := time.Now()
-
-	// init parser
-	initParser()
-
-	// open file
-	file, err := os.Open(lp.fileName)
-	checkError(err)
-	defer file.Close()
-
-	fi, err := file.Stat()
-	checkError(err)
-
-	lp.fileSize = fi.Size()
-
-	lp.totalChunks = int(lp.fileSize / chunkSize)
-	if lp.fileSize%chunkSize > 0 {
-		lp.totalChunks++
-	}
-
-	// start file split
-	go splitFile(file, lp.chanParse)
-
-	var mutex = &sync.Mutex{}
-
-	// TODO: how to terminate these workers?
-	// start chunk parsers
-	for i := 0; i < lp.Concurrency; i++ {
-		go func() {
-			for {
-				// TODO: use signalling channel to terminate
-
-				// read a raw chunk
-				chunk := <-lp.chanParse
-
-				start := time.Now()
-
-				parseLines(chunk)
-				//parseLines(chunk)
-				//parseNormal(chunk)
-
-				mutex.Lock()
-				lp.parseTime += time.Now().Sub(start)
-				mutex.Unlock()
-
-				// send to merger
-				lp.chanMerge <- chunk
-			}
-		}()
-
-	}
-
-	// build XML tree
-	//lp.merge()
-	// tree:=lp.merge()
-
-	lp.totalTime = time.Now().Sub(startTime)
-
-	// print parsing results
-	fmt.Printf("Total chunks: %d\n", lp.totalChunks)
-	fmt.Printf("Read time: %f sec\n", lp.readTime.Seconds())
-	fmt.Printf("Parse time: %f sec (accumulated)\n", lp.parseTime.Seconds())
-	fmt.Printf("Total time: %f sec\n", lp.totalTime.Seconds())
-
-	// close channels
-	close(lp.chanParse)
-	close(lp.chanMerge)
-
-	return nil
 }
